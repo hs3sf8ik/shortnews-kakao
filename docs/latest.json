@@ -1,0 +1,19 @@
+{
+ "entries": [
+  {
+   "date": "2026-09-13",
+   "users": [
+    {
+     "id": "all",
+     "name": "공용",
+     "path": "2026-09-13/index.html"
+    },
+    {
+     "id": "kdu",
+     "name": "관리자",
+     "path": "2026-09-13/kdu.html"
+    }
+   ]
+  }
+ ]
+}
