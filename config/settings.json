@@ -1,0 +1,54 @@
+{
+  "timezone": "Asia/Seoul",
+  "window_hours": 26,
+  "feeds": [
+    {"outlet": "연합뉴스", "section": "정치", "url": "https://www.yna.co.kr/rss/politics.xml"},
+    {"outlet": "연합뉴스", "section": "정치", "url": "https://www.yna.co.kr/rss/northkorea.xml"},
+    {"outlet": "연합뉴스", "section": "경제", "url": "https://www.yna.co.kr/rss/economy.xml"},
+    {"outlet": "연합뉴스", "section": "경제", "url": "https://www.yna.co.kr/rss/market.xml"},
+    {"outlet": "연합뉴스", "section": "경제", "url": "https://www.yna.co.kr/rss/industry.xml"},
+    {"outlet": "연합뉴스", "section": "사회", "url": "https://www.yna.co.kr/rss/society.xml"},
+    {"outlet": "연합뉴스", "section": "국제", "url": "https://www.yna.co.kr/rss/international.xml"},
+    {"outlet": "연합뉴스", "section": "스포츠", "url": "https://www.yna.co.kr/rss/sports.xml"},
+    {"outlet": "SBS", "section": "정치", "url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER"},
+    {"outlet": "SBS", "section": "경제", "url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER"},
+    {"outlet": "SBS", "section": "사회", "url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER"},
+    {"outlet": "SBS", "section": "국제", "url": "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER"},
+    {"outlet": "뉴시스", "section": null, "url": "https://www.newsis.com/RSS/sokbo.xml"},
+    {"outlet": "국민일보", "section": null, "url": "https://www.kmib.co.kr/rss/data/kmibRssAll.xml"},
+    {"outlet": "경향신문", "section": null, "url": "https://www.khan.co.kr/rss/rssdata/total_news.xml"},
+    {"outlet": "연합뉴스TV", "section": null, "url": "https://www.yonhapnewstv.co.kr/browse/feed/"}
+  ],
+  "exclude_title_patterns": ["\\[게시판\\]", "\\[인사\\]", "\\[부고\\]", "\\[사진\\]", "\\[포토\\]", "\\[영상\\]", "\\[표\\]", "\\[그래픽\\]", "\\[오늘의 주요일정\\]", "\\[주요 일정\\]", "\\[카드뉴스\\]", "\\[연합뉴스 이 시각 헤드라인\\]", "\\[고침\\]", "\\[속보\\]", "\\[1보\\]", "\\[2보\\]", "부동산 브리핑", "^\\[.*?\\] 다시보기", "프로필", "동정"],
+  "max_clusters_for_selection": 130,
+  "max_articles_per_cluster": 2,
+  "max_body_chars": 1200,
+  "interest_candidates_per_user": 5,
+  "fetch_workers": 12,
+  "shortnews_indicators_url": "https://shortnews.co.kr/news/{date}",
+
+  "llm": {
+    "backend": "claude-cli",
+    "model": "claude-opus-5",
+    "max_tokens": 12000
+  },
+
+  "publish": {
+    "docs_dir": "docs",
+    "page_base_url": "https://hs3sf8ik.github.io/shortnews-kakao",
+    "github_upload": true,
+    "github_repo": "hs3sf8ik/shortnews-kakao",
+    "github_branch": "main"
+  },
+
+  "kakao": {
+    "enabled": true,
+    "button_title": "전체 뉴스 보기",
+    "max_text_chars": 200
+  },
+
+  "telegram": {
+    "enabled": false,
+    "chat_ids": []
+  }
+}
