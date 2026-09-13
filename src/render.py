@@ -31,8 +31,6 @@ def render_text(digest: dict, extras: dict, user: dict | None = None, page_url: 
         for it in interest:
             lines.append(f"■ (관심·{it['keyword']}) {it['text']}")
             lines.append("")
-    if digest.get("quote"):
-        lines += ["[오늘의 명언]", digest["quote"], ""]
     if page_url:
         lines += [f"[{SITE_NAME}]", page_url, ""]
     if extras.get("indicators"):
@@ -56,12 +54,40 @@ def _first_sentence(text: str) -> str:
     return m.group(1) if m else text
 
 
+def _fit(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def render_kakao_chunks(digest: dict, extras: dict, run_date: dt.date, user: dict | None,
+                        max_chars: int = 200, max_messages: int = 18, include_indicators: bool = True) -> list[str]:
+    """본문 전체를 카카오 말풍선(≤200자) 여러 개로 나눈다 — 음성 듣기용.
+    1번: 날짜 헤더 + 톱뉴스, 이후 항목마다 1개, 관심 뉴스, 마지막에 경제지표(선택)."""
+    items = list(digest["items"])
+    top = next((it for it in items if it["category"] == "톱뉴스"), items[0])
+    rest = [it for it in items if it is not top]
+    header = f"{short_date(run_date)} {SITE_NAME}\n\n■ (톱뉴스) "
+    chunks = [header + _fit(top["text"], max_chars - len(header))]
+    for it in rest:
+        prefix = f"■ ({it['category']}) "
+        chunks.append(prefix + _fit(it["text"], max_chars - len(prefix)))
+    for it in _interest_items(digest, user["id"] if user else None):
+        prefix = f"■ (관심·{it['keyword']}) "
+        chunks.append(prefix + _fit(it["text"], max_chars - len(prefix)))
+    if include_indicators and extras.get("indicators"):
+        ind = "[주요 경제 지표]\n" + "\n".join(f"{i['name']} {i['value']}" for i in extras["indicators"])
+        if len(ind) <= max_chars:
+            chunks.append(ind)
+    if len(chunks) > max_messages:  # 일일 한도 보호 — 뒤쪽(지표·관심)부터 잘라냄
+        chunks = chunks[:max_messages]
+    return chunks
+
+
 def render_kakao_text(digest: dict, run_date: dt.date, user: dict | None, max_chars: int = 200) -> str:
     """카카오 텍스트 템플릿(최대 200자)에 들어갈 요약. 톱뉴스 첫 문장을 최대한 살린다."""
     top = next((it for it in digest["items"] if it["category"] == "톱뉴스"), digest["items"][0])
     n_main = len([it for it in digest["items"] if it["category"] not in ("날씨",)])
     n_int = len(_interest_items(digest, user["id"] if user else None))
-    tail = f"\n\n오늘 {n_main}건" + (f" + 관심 {n_int}건" if n_int else "") + " ▶ 전체 보기"
+    tail = f"\n\n오늘 {n_main}건" + (f" + 관심 {n_int}건" if n_int else "") + " → 아래 버튼으로 전체 보기"
     head = f"{short_date(run_date)} {SITE_NAME}\n\n■ 톱뉴스 "
     budget = max_chars - len(head) - len(tail)
     sent = _first_sentence(top["text"])
@@ -130,8 +156,6 @@ def render_html(digest: dict, extras: dict, crawl: dict, run_date: dt.date, user
             parts.append("<p class='item'><span class='cat'>—</span> 오늘은 관심 키워드에 해당하는 뉴스가 없었습니다.</p>")
         parts.append("</article>")
 
-    if digest.get("quote"):
-        parts.append(f"<h2>오늘의 명언</h2><article><p class='item'>{html.escape(digest['quote'])}</p></article>")
     if extras.get("indicators"):
         parts.append("<h2>주요 경제 지표</h2><article><table>")
         for ind in extras["indicators"]:
