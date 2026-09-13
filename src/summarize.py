@@ -94,18 +94,33 @@ WRITE_SCHEMA = {
                 "additionalProperties": False,
             },
         },
-        "quote": {"type": "string"},
     },
-    "required": ["header", "items", "interest", "quote"],
+    "required": ["header", "items", "interest"],
     "additionalProperties": False,
 }
 
-SELECT_SYSTEM = """당신은 한국 일간 뉴스 브리핑 「짧은 뉴스」의 데스크입니다.
+DEFAULT_COUNTS = {"정치": 4, "경제": 4, "사회": 3, "국제": 2, "스포츠": 0}
+
+
+def _counts(settings: dict) -> dict[str, int]:
+    c = dict(DEFAULT_COUNTS)
+    c.update(settings.get("digest", {}).get("counts", {}))
+    return c
+
+
+def _select_system(counts: dict[str, int]) -> str:
+    total = sum(counts.values())
+    spec = ", ".join(f"{k} {v}" for k, v in counts.items() if v > 0)
+    sports_note = " (스포츠는 기록성 이슈가 있을 때만 채우고 없으면 0)" if counts.get("스포츠") else ""
+    return f"""당신은 한국 일간 뉴스 브리핑 「짧은 뉴스」의 데스크입니다.
 입력된 사안 목록(제목·리드·보도 매체 수)만 보고, 오늘 브리핑에 실을 사안을 고릅니다.
 
 선별 규칙
-- 총 21~23개를 고르고 카테고리를 붙입니다: 정치 5~8, 경제 4~6, 사회 5~8, 국제 1~6, 스포츠 0~1 (기록성 이슈만).
-- 그중 파급력이 가장 큰 하나를 top 으로 지정합니다 (main 에도 포함).
+- 정확히 {total}개를 고르고 카테고리를 붙입니다: {spec}{sports_note}. 톱뉴스는 이 {total}개 중 하나입니다.
+- 그중 파급력이 가장 큰 하나를 top 으로 지정합니다 (main 에도 포함).""" + SELECT_RULES_TAIL
+
+
+SELECT_RULES_TAIL = """
 - 우선순위: ① 국정·정부 인사·국회 ② 시장 지표·경제 정책 ③ 사법·사건·사고·재난 ④ 한국에 영향이 큰 국제 정세.
 - 여러 매체가 함께 보도한 사안(매체 수가 많은 것)을 우선하되, 단독 보도라도 중대하면 포함합니다.
 - 같은 사안이 여러 클러스터로 쪼개져 있으면 하나만 고릅니다. 연예·가십·단순 홍보·지역 단신·기획/해설·인터뷰는 제외합니다.
@@ -185,7 +200,9 @@ def _fmt_write_input(crawl: dict, sel: dict, users: list[dict], run_date: dt.dat
         ls.append("")
         return ls
 
-    lines = [f"[작성 기준일] {header_date(run_date)} (헤더: '{header_date(run_date)} 짧은 뉴스입니다.')", "",
+    max_item = settings.get("digest", {}).get("max_item_chars", 170)
+    lines = [f"[작성 기준일] {header_date(run_date)} (헤더: '{header_date(run_date)} 짧은 뉴스입니다.')",
+             f"[작성 기준] 아래 본문 사안 {len(main_ids)}개를 각 1개 항목으로, 항목당 두 문장·공백 포함 {max_item}자 이내. 날씨 1개 추가.", "",
              "[본문 사안] 아래 순서대로 각 1개 항목씩 작성 (톱뉴스 1 + 나머지). 카테고리 라벨은 대괄호 안 값을 그대로 사용.", ""]
     for cid in main_ids:
         lines += fmt_cluster(cid, cat_of.get(cid, "정치"))
@@ -302,8 +319,6 @@ def _validate_digest(digest: dict, crawl: dict) -> dict:
     return digest
 
 
-MAX_ITEM_CHARS = 180
-
 REPAIR_SCHEMA = {
     "type": "object",
     "properties": {
@@ -321,39 +336,40 @@ REPAIR_SCHEMA = {
     "additionalProperties": False,
 }
 
-REPAIR_SYSTEM = """아래 뉴스 항목들을 같은 합쇼체·정확히 두 문장으로 유지하면서 공백 포함 150자 이내로 압축하세요.
+REPAIR_SYSTEM = """아래 뉴스 항목들을 같은 합쇼체·정확히 두 문장으로 유지하면서 공백 포함 {limit}자 이내로 압축하세요.
 사실·수치·인명은 바꾸거나 추가하지 말고, 수식어와 부연 절만 줄입니다. idx 는 그대로 돌려줍니다."""
 
 
-def _repair_lengths(llm: "LLM", digest: dict) -> None:
-    """180자를 넘는 항목만 골라 한 번의 저비용 호출로 압축한다."""
-    targets = [(i, it) for i, it in enumerate(digest["items"]) if len(it["text"]) > MAX_ITEM_CHARS]
+def _repair_lengths(llm: "LLM", digest: dict, max_chars: int) -> None:
+    """상한을 넘는 항목만 골라 한 번의 저비용 호출로 압축한다 (카카오 말풍선 200자 안에 들어가야 함)."""
+    targets = [(i, it) for i, it in enumerate(digest["items"]) if len(it["text"]) > max_chars]
     for e in digest.get("interest", []):
-        for j, it in enumerate(e["items"]):
-            if len(it["text"]) > MAX_ITEM_CHARS:
+        for it in e["items"]:
+            if len(it["text"]) > max_chars:
                 targets.append((1000 + len(targets), it))
     if not targets:
         return
-    log.info("길이 초과 항목 %d개 압축", len(targets))
+    log.info("길이 초과(%d자) 항목 %d개 압축", max_chars, len(targets))
     user = "\n\n".join(f"idx={k}\n{it['text']}" for k, (_, it) in enumerate(targets))
     try:
-        res = llm.call_json(REPAIR_SYSTEM, user, REPAIR_SCHEMA, effort="low")
+        res = llm.call_json(REPAIR_SYSTEM.format(limit=max_chars - 20), user, REPAIR_SCHEMA, effort="low")
     except Exception as e:  # 압축 실패는 치명적이지 않음
         log.warning("압축 호출 실패, 원문 유지: %s", e)
         return
     for r in res.get("items", []):
         k = r.get("idx")
-        if isinstance(k, int) and 0 <= k < len(targets) and 40 < len(r["text"]) <= 200:
+        if isinstance(k, int) and 0 <= k < len(targets) and 40 < len(r["text"]) <= max_chars + 10:
             targets[k][1]["text"] = r["text"].strip()
 
 
 def summarize(crawl: dict, users: list[dict], settings: dict, run_date: dt.date) -> dict:
     llm = LLM(settings["llm"])
+    counts = _counts(settings)
 
     # ① 선별 — 제목·리드만 보여 토큰 절약
     sel_in = _fmt_select_input(crawl, users, settings)
-    log.info("1단계 선별 입력 %d자", len(sel_in))
-    sel = llm.call_json(SELECT_SYSTEM, sel_in, SELECT_SCHEMA, effort="low")
+    log.info("1단계 선별 입력 %d자 (목표 %d개)", len(sel_in), sum(counts.values()))
+    sel = llm.call_json(_select_system(counts), sel_in, SELECT_SCHEMA, effort="low")
     sel = _validate_selection(sel, crawl)
     log.info("선별 결과: 본문 %d개, 톱=%s, 관심=%s", len(sel["main"]), sel["top"],
              {e["user_id"]: e["cluster_ids"] for e in sel["interest"]})
@@ -364,7 +380,8 @@ def summarize(crawl: dict, users: list[dict], settings: dict, run_date: dt.date)
     log.info("2단계 작성 입력 %d자", len(write_in))
     digest = llm.call_json(style, write_in, WRITE_SCHEMA, effort="medium")
     digest = _validate_digest(digest, crawl)
-    _repair_lengths(llm, digest)
+    digest.pop("quote", None)  # 명언 블록은 쓰지 않음
+    _repair_lengths(llm, digest, settings.get("digest", {}).get("max_item_chars", 170))
     lens = [len(it["text"]) for it in digest["items"]]
     log.info("항목 %d개, 길이 중앙값 %d자, 최대 %d자", len(lens), sorted(lens)[len(lens) // 2], max(lens))
     digest["header"] = f"{header_date(run_date)} 짧은 뉴스입니다."
