@@ -7,7 +7,7 @@ import re
 
 from .common import short_date
 
-SITE_NAME = "간추린 숏뉴스"
+SITE_NAME = "짧은 뉴스"
 
 
 def _interest_items(digest: dict, user_id: str | None) -> list[dict]:
@@ -109,10 +109,10 @@ def render_html(digest: dict, extras: dict, crawl: dict, run_date: dt.date, user
                 index_url: str = "index.html") -> str:
     articles_by_id = {a["id"]: a for c in crawl["clusters"] for a in c["articles"]}
     articles_by_id.update({a["id"]: a for a in crawl.get("weather", [])})
-    title = f"{digest['header'].replace(' 간추린 숏뉴스입니다.', '')} {SITE_NAME}"
+    title = f"{digest['header'].replace(f' {SITE_NAME}입니다.', '')} {SITE_NAME}"
     parts = [f"<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>",
              f"<title>{html.escape(title)}</title><style>{_CSS}</style></head><body>",
-             f"<header><h1>📰 {html.escape(title)}</h1><p>매일 가장 중요한 핵심만 빠르게 · 자동 생성 브리핑</p></header><main>"]
+             f"<header><h1>📰 {html.escape(title)}</h1><p>오늘의 주요 뉴스를 두 문장씩 · 자동 생성 브리핑</p></header><main>"]
     parts.append(f"<nav><a href='{index_url}'>← 지난 브리핑</a></nav>")
     parts.append("<article>")
     for it in digest["items"]:
