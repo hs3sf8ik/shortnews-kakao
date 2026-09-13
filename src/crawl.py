@@ -1,4 +1,4 @@
-"""RSS 수집 → 본문 추출 → 사안(클러스터) 묶기 → 숏뉴스 경제지표 수집."""
+﻿"""RSS 수집 → 본문 추출 → 사안(클러스터) 묶기 → 경제지표 수집."""
 from __future__ import annotations
 
 import concurrent.futures as cf
@@ -257,7 +257,7 @@ def fill_bodies(clusters: list[Cluster], per_cluster: int, workers: int, max_cha
         c.articles.sort(key=lambda a: (len(a.body), len(a.lead)), reverse=True)
 
 
-# --------------------------------------------------------------------------- 숏뉴스 경제지표
+# --------------------------------------------------------------------------- 경제지표
 
 _INDICATOR_RE = re.compile(r"^\s*-\s*(.+?)\s*:\s*(.+?)\s*$", re.M)
 
@@ -269,7 +269,7 @@ def fetch_shortnews_extras(url_tpl: str, date: dt.date) -> dict:
         r = requests.get(url, headers={"User-Agent": UA}, timeout=15)
         r.raise_for_status()
     except Exception as e:
-        log.warning("숏뉴스 지표 페이지 실패: %s", e)
+        log.warning("경제지표 페이지 실패: %s", e)
         return {"indicators": [], "source_url": url}
     soup = BeautifulSoup(r.text, "html.parser")
     text = soup.get_text("\n")
