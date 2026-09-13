@@ -58,7 +58,7 @@ def main() -> int:
     users = load_users()
     run_date = dt.date.fromisoformat(args.date) if args.date else now_kst().date()
     day_dir = DATA_DIR / run_date.isoformat()
-    log.info("=== 간추린 숏뉴스 %s / 유저 %d명 ===", run_date, len(users))
+    log.info("=== 짧은 뉴스 %s / 유저 %d명 ===", run_date, len(users))
 
     # 1) 수집
     crawl_path = day_dir / "crawl.json"
