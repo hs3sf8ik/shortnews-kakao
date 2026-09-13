@@ -111,11 +111,33 @@ python -m src.main --backend claude-cli   # API 키 없이 이 PC 의 Claude Cod
 - `claude-opus-5` 기준 하루 약 $0.4~0.5, `claude-sonnet-5` 로 바꾸면 약 $0.15~0.2 (`settings.llm.model`)
 - 줄이려면 `max_clusters_for_selection`(130), `max_body_chars`(1200) 를 낮추면 됩니다
 
-## 카카오 제약 (설계 이유)
+## 카카오 발송 방식 (`settings.kakao.mode`)
 
-- 텍스트 템플릿 200자 → 톱뉴스 첫 문장 + [전체 보기] 버튼, 전문은 GitHub Pages
-- 발신·수신 쌍당 하루 20건 → 하루 1건만 발송
-- 리프레시 토큰 2개월 → 매일 실행 시 자동 회전, `secrets/kakao_tokens(.json|.enc)` 갱신
+| mode | 동작 | 용도 |
+|---|---|---|
+| `text` (현재) | 본문 전체를 말풍선 여러 개로: 1번 = 날짜+톱뉴스, 이후 항목마다 1개, 관심 뉴스, 마지막 경제지표 | 카톡에서 바로 읽기·**음성 듣기** |
+| `link` | 200자 요약 1건 + [전체 뉴스 보기] 버튼 → GitHub Pages 전문 | 하루 1건만 받고 싶을 때 |
+
+카카오 API 제약: 텍스트 템플릿 **200자/건**, 발신·수신 쌍당 **하루 20건**(-536). 그래서 `text` 모드는 항목 수를
+`digest.counts`(기본 톱1+정치4+경제4+사회3+국제2+날씨1 = 15) + 관심 2 + 지표 1 = 최대 18건으로 맞추고, 항목당 170자 상한을
+프롬프트·압축 단계에서 강제합니다. 한도 초과 시 남은 건은 중단하고 로그에 남깁니다. 명언 블록은 넣지 않습니다.
+링크 버튼이 필요하면 `kakao.link_button: true` — 이때 링크 도메인은 카카오 앱 [제품 링크 관리]에 등록돼 있어야 버튼이 표시됩니다.
+리프레시 토큰은 2개월 유효, 매일 실행 시 자동 회전(`secrets/kakao_tokens.json`).
+
+## 휴면(보안 정리) / 재가동
+
+**휴면 — 남는 민감 정보를 없애는 순서**
+1. 예약 작업 중지: `Disable-ScheduledTask shortnews-kakao` (완전 삭제는 `Unregister-ScheduledTask shortnews-kakao -Confirm:$false`)
+2. GitHub PAT 삭제: https://github.com/settings/personal-access-tokens → `shortnews` 토큰 Delete
+3. 카카오 연결 해제: 카카오계정 → 연결된 서비스 관리 → 앱 → 연결 끊기 (리프레시 토큰 무효화). 앱 자체를 지우려면 카카오디벨로퍼스 → 앱 설정 → 앱 삭제
+4. 로컬 비밀 파일 삭제: `secrets\.env`, `secrets\kakao_tokens.json` (템플릿 `.env.example` 은 유지)
+5. (선택) `data\`, `logs\` 삭제 — 뉴스 캐시·실행 로그, 민감 정보 없음
+- GitHub 저장소·Pages 는 비밀이 없어 그대로 둬도 됨 (`.gitignore` 로 secrets/·data/ 제외, 업로드 스크립트도 동일 규칙)
+
+**재가동**
+1. `secrets\.env.example` → `secrets\.env` 복사 후 `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, 새 `GITHUB_TOKEN` 입력 (카카오 앱을 지웠다면 README B 절대로 재생성 + [제품 링크 관리]에 `https://hs3sf8ik.github.io` 등록)
+2. `python scripts\kakao_auth.py --user kdu` (브라우저 로그인 1회) → `--test` 로 확인
+3. `python -m src.main --dry-run` 으로 미리보기 → `Enable-ScheduledTask shortnews-kakao`
 
 ## 관심 키워드
 
