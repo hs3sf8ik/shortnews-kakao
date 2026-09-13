@@ -1,0 +1,6 @@
+anthropic>=1.5.0
+requests>=2.32
+feedparser>=6.0
+trafilatura>=2.0
+beautifulsoup4>=4.12
+cryptography>=43.0
