@@ -1,0 +1,9 @@
+[
+  {
+    "id": "kdu",
+    "name": "관리자",
+    "keywords": ["금융범죄수사대"],
+    "kakao": true,
+    "enabled": true
+  }
+]
