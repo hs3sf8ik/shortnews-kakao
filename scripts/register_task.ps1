@@ -8,6 +8,6 @@ $trigger = New-ScheduledTaskTrigger -Daily -At $Time
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 40) `
             -MultipleInstances IgnoreNew -WakeToRun
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
-    -Description "간추린 숏뉴스 카카오톡 발송 (Desktop\Claude\shortnews-kakao)" -Force | Out-Null
+    -Description "짧은 뉴스 카카오톡 발송 (Desktop\Claude\shortnews-kakao)" -Force | Out-Null
 Get-ScheduledTask -TaskName $TaskName | Select-Object TaskName, State
 (Get-ScheduledTask -TaskName $TaskName).Triggers | Select-Object StartBoundary, Enabled
