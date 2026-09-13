@@ -61,6 +61,7 @@ def main() -> int:
     ap.add_argument("--user", required=True, help="config/users.json 의 id")
     ap.add_argument("--manual", action="store_true", help="브라우저 자동 실행 없이 링크 출력 + code 수동 입력")
     ap.add_argument("--test", action="store_true", help="저장된 토큰으로 테스트 메시지 발송")
+    ap.add_argument("--timeout", type=int, default=300, help="인증 대기 시간(초)")
     args = ap.parse_args()
     setup_logging()
     load_env()
