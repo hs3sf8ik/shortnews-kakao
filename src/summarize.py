@@ -1,4 +1,4 @@
-"""Claude 2단계 호출: ① 사안 선별(제목·리드만) → ② 선별 기사 본문으로 숏뉴스 문체 작성."""
+"""Claude 2단계 호출: ① 사안 선별(제목·리드만) → ② 선별 기사 본문으로 짧은 뉴스 형식 문체 작성."""
 from __future__ import annotations
 
 import datetime as dt
@@ -100,7 +100,7 @@ WRITE_SCHEMA = {
     "additionalProperties": False,
 }
 
-SELECT_SYSTEM = """당신은 한국 일간 뉴스 브리핑 「간추린 숏뉴스」의 데스크입니다.
+SELECT_SYSTEM = """당신은 한국 일간 뉴스 브리핑 「짧은 뉴스」의 데스크입니다.
 입력된 사안 목록(제목·리드·보도 매체 수)만 보고, 오늘 브리핑에 실을 사안을 고릅니다.
 
 선별 규칙
@@ -118,7 +118,7 @@ SELECT_SYSTEM = """당신은 한국 일간 뉴스 브리핑 「간추린 숏뉴�
 
 
 def _load_style_prompt() -> str:
-    return (PROMPTS_DIR / "shortnews_style.md").read_text(encoding="utf-8")
+    return (PROMPTS_DIR / "short_news_style.md").read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- 입력 포맷
@@ -185,7 +185,7 @@ def _fmt_write_input(crawl: dict, sel: dict, users: list[dict], run_date: dt.dat
         ls.append("")
         return ls
 
-    lines = [f"[작성 기준일] {header_date(run_date)} (헤더: '{header_date(run_date)} 간추린 숏뉴스입니다.')", "",
+    lines = [f"[작성 기준일] {header_date(run_date)} (헤더: '{header_date(run_date)} 짧은 뉴스입니다.')", "",
              "[본문 사안] 아래 순서대로 각 1개 항목씩 작성 (톱뉴스 1 + 나머지). 카테고리 라벨은 대괄호 안 값을 그대로 사용.", ""]
     for cid in main_ids:
         lines += fmt_cluster(cid, cat_of.get(cid, "정치"))
@@ -367,7 +367,7 @@ def summarize(crawl: dict, users: list[dict], settings: dict, run_date: dt.date)
     _repair_lengths(llm, digest)
     lens = [len(it["text"]) for it in digest["items"]]
     log.info("항목 %d개, 길이 중앙값 %d자, 최대 %d자", len(lens), sorted(lens)[len(lens) // 2], max(lens))
-    digest["header"] = f"{header_date(run_date)} 간추린 숏뉴스입니다."
+    digest["header"] = f"{header_date(run_date)} 짧은 뉴스입니다."
     digest["selection"] = sel
     digest["usage"] = {**llm.usage, "model": llm.model, "est_cost_usd": round(llm.cost_usd(), 4)}
     log.info("LLM 사용량 in=%d out=%d ≈ $%.3f", llm.usage["input"], llm.usage["output"], llm.cost_usd())
