@@ -115,26 +115,48 @@ class KakaoClient:
         return self.refresh(user_id)
 
     # ---- 메시지
-    def send_text(self, user_id: str, text: str, url: str, button_title: str = "전체 뉴스 보기") -> dict:
+    QUOTA_CODES = {-532: "발신자 일일 한도", -533: "수신자 일일 한도", -536: "발신·수신 쌍 일일 한도(20건)"}
+
+    def send_text(self, user_id: str, text: str, url: str | None = None, button_title: str | None = None) -> dict:
+        """텍스트 템플릿 1건. url 이 None 이면 버튼 없는 순수 텍스트 (link 는 필수 필드라 빈 객체 전송)."""
         if len(text) > 200:
             raise ValueError(f"카카오 텍스트 템플릿은 200자 제한입니다 ({len(text)}자)")
-        template = {
-            "object_type": "text",
-            "text": text,
-            "link": {"web_url": url, "mobile_web_url": url},
-            "button_title": button_title,
-        }
+        template: dict = {"object_type": "text", "text": text, "link": {}}
+        if url:
+            template["link"] = {"web_url": url, "mobile_web_url": url}
+            if button_title:
+                template["button_title"] = button_title
         for attempt in (1, 2):
             token = self.access_token(user_id)
             r = requests.post(MEMO_URL, headers={"Authorization": f"Bearer {token}"},
                               data={"template_object": json.dumps(template, ensure_ascii=False)}, timeout=15)
             body = r.json() if r.content else {}
             if r.status_code == 200 and body.get("result_code") == 0:
-                log.info("[%s] 카카오톡 발송 완료", user_id)
                 return body
             if r.status_code == 401 and attempt == 1:
                 log.info("[%s] 401 → 토큰 갱신 후 재시도", user_id)
                 self.refresh(user_id)
                 continue
+            if body.get("code") in self.QUOTA_CODES:
+                raise QuotaExceeded(f"[{user_id}] 카카오 {self.QUOTA_CODES[body['code']]} 초과: {body}")
             raise RuntimeError(f"[{user_id}] 카카오 발송 실패 {r.status_code}: {body}")
         return {}
+
+    def send_chunks(self, user_id: str, chunks: list[str], interval_sec: float = 0.5) -> int:
+        """여러 말풍선을 순서대로 발송. 한도 초과 시 중단하고 보낸 개수를 반환."""
+        sent = 0
+        for i, text in enumerate(chunks):
+            try:
+                self.send_text(user_id, text)
+            except QuotaExceeded as e:
+                log.error("%s — %d/%d건에서 중단", e, sent, len(chunks))
+                break
+            sent += 1
+            if i < len(chunks) - 1:
+                time.sleep(interval_sec)
+        log.info("[%s] 카카오톡 %d/%d건 발송 완료", user_id, sent, len(chunks))
+        return sent
+
+
+class QuotaExceeded(RuntimeError):
+    pass
