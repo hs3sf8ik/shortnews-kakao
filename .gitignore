@@ -1,0 +1,10 @@
+# 비밀정보 (암호화된 토큰 파일만 커밋)
+secrets/*
+!secrets/kakao_tokens.enc
+!secrets/.env.example
+
+# 수집 캐시
+data/
+
+__pycache__/
+*.pyc
