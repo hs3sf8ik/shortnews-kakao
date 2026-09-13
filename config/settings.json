@@ -27,6 +27,11 @@
   "fetch_workers": 12,
   "shortnews_indicators_url": "https://shortnews.co.kr/news/{date}",
 
+  "digest": {
+    "counts": {"정치": 4, "경제": 4, "사회": 3, "국제": 2, "스포츠": 0},
+    "max_item_chars": 170
+  },
+
   "llm": {
     "backend": "claude-cli",
     "model": "claude-opus-5",
@@ -43,8 +48,13 @@
 
   "kakao": {
     "enabled": true,
+    "mode": "text",
+    "max_text_chars": 200,
+    "max_messages_per_run": 18,
+    "include_indicators": true,
+    "link_button": false,
     "button_title": "전체 뉴스 보기",
-    "max_text_chars": 200
+    "send_interval_sec": 0.5
   },
 
   "telegram": {
