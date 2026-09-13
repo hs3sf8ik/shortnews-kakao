@@ -18,8 +18,17 @@ from . import crawl as crawl_mod
 from .common import DATA_DIR, ROOT, load_env, load_json, load_settings, load_users, log, now_kst, save_json, setup_logging
 from .kakao import KakaoClient
 from .publish import github_upload, page_paths, write_pages
-from .render import render_html, render_kakao_text, render_text
+from .render import render_html, render_kakao_chunks, render_kakao_text, render_text
 from .summarize import summarize
+
+
+def kakao_payload(digest: dict, extras: dict, run_date: dt.date, u: dict, kcfg: dict, page_url: str) -> tuple[list[str], str | None]:
+    """mode=text: 본문 전체를 말풍선 여러 개로 / mode=link: 요약 1건 + 페이지 버튼."""
+    if kcfg.get("mode", "text") == "text":
+        chunks = render_kakao_chunks(digest, extras, run_date, u, kcfg.get("max_text_chars", 200),
+                                     kcfg.get("max_messages_per_run", 18), kcfg.get("include_indicators", True))
+        return chunks, (page_url if kcfg.get("link_button") else None)
+    return [render_kakao_text(digest, run_date, u, kcfg.get("max_text_chars", 200))], page_url
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> None:
@@ -102,20 +111,30 @@ def main() -> int:
             log.error("GitHub Pages 업로드 실패 (카카오 링크가 열리지 않을 수 있음): %s", e)
 
     # 4) 발송
+    kcfg = settings["kakao"]
     if args.dry_run:
         log.info("--dry-run: 발송·업로드 생략")
         for u in users:
-            print(f"\n[카카오 미리보기 · {u['id']}]\n{render_kakao_text(digest, run_date, u, settings['kakao']['max_text_chars'])}")
+            chunks, url = kakao_payload(digest, crawl["extras"], run_date, u, kcfg, f"{base_url}/{page_paths(run_date, u['id'])}")
+            print(f"\n[카카오 미리보기 · {u['id']} · {len(chunks)}건, 최대 {max(len(c) for c in chunks)}자, 버튼={'있음' if url else '없음'}]")
+            for i, c in enumerate(chunks, 1):
+                print(f"--- {i} ({len(c)}자)\n{c}")
         return 0
-    if settings["kakao"].get("enabled", True):
+    if kcfg.get("enabled", True):
         kakao = KakaoClient()
         for u in users:
             if not u.get("kakao", True) or (args.user and u["id"] != args.user):
                 continue
             url = f"{base_url}/{page_paths(run_date, u['id'])}"
-            text = render_kakao_text(digest, run_date, u, settings["kakao"]["max_text_chars"])
+            chunks, link = kakao_payload(digest, crawl["extras"], run_date, u, kcfg, url)
             try:
-                kakao.send_text(u["id"], text, url, settings["kakao"].get("button_title", "전체 뉴스 보기"))
+                if len(chunks) == 1 and link:
+                    kakao.send_text(u["id"], chunks[0], link, kcfg.get("button_title", "전체 뉴스 보기"))
+                    log.info("[%s] 카카오톡 발송 완료", u["id"])
+                else:
+                    sent = kakao.send_chunks(u["id"], chunks, kcfg.get("send_interval_sec", 0.5))
+                    if sent < len(chunks):
+                        failures += 1
             except Exception as e:
                 failures += 1
                 log.error("%s", e)
