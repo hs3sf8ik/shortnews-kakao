@@ -67,7 +67,7 @@ def main() -> int:
     kakao = KakaoClient()
 
     if args.test:
-        kakao.send_text(args.user, f"[테스트] 간추린 숏뉴스 카카오 연결 확인 ({args.user})", "https://shortnews.co.kr", "확인")
+        kakao.send_text(args.user, f"[테스트] 짧은 뉴스 카카오 연결 확인 ({args.user})", "https://hs3sf8ik.github.io/shortnews-kakao/", "확인")
         print("테스트 메시지를 보냈습니다. 카카오톡 '나와의 채팅'을 확인하세요.")
         return 0
 
